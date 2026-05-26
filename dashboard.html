@@ -651,7 +651,7 @@ function renderTable() {
       'cancelado': 's-cancelado'
     }[d.status] || 's-pendente';
 
-    const createdAt = new Date(d.created_at).toLocaleDateString('pt-BR');
+    const createdAt = new Date(d.created_at).toLocaleString('pt-BR');
 
     return `<tr>
       <td><strong>${escHtml(d.vendedor)}</strong><br/><span style="color:var(--muted);font-size:11px">${createdAt}</span></td>
