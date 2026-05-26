@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Teletex — Dashboard do Arquiteto</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --accent: #e8312a;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --success: #3fb950;
+    --warn-1: #3fb950;
+    --warn-2: #7ee787;
+    --warn-3: #d29922;
+    --warn-4: #f0883e;
+    --warn-5: #f85149;
+    --status-pendente: #d29922;
+    --status-andamento: #58a6ff;
+    --status-concluido: #3fb950;
+    --status-cancelado: #8b949e;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Auth overlay ── */
+  #authOverlay {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    flex-direction: column; gap: 20px;
+  }
+
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px;
+    width: 340px;
+    text-align: center;
+  }
+
+  .auth-logo { font-size: 32px; margin-bottom: 8px; }
+  .auth-card h2 { font-size: 18px; margin-bottom: 6px; }
+  .auth-card p { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  .auth-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 11px 14px;
+    font-size: 15px;
+    text-align: center;
+    letter-spacing: 3px;
+    margin-bottom: 14px;
+  }
+
+  .auth-input:focus { outline: none; border-color: var(--accent); }
+
+  .auth-btn {
+    width: 100%;
+    padding: 11px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .auth-error { color: var(--warn-5); font-size: 12px; margin-top: 10px; min-height: 16px; }
+
+  /* ── Layout ── */
+  #app { display: none; }
+
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .nav-left { display: flex; align-items: center; gap: 12px; }
+
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: grid; place-items: center;
+    font-weight: 900; font-size: 14px;
+  }
+
+  nav h1 { font-size: 16px; font-weight: 700; }
+  nav span { font-size: 12px; color: var(--muted); }
+
+  .nav-right { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    padding: 8px 14px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 600;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent2, #ff6b6b); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn.primary:hover { opacity: 0.88; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+  }
+
+  .kpi-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .kpi-value { font-size: 32px; font-weight: 800; line-height: 1; }
+  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .kpi.red .kpi-value { color: var(--warn-5); }
+  .kpi.orange .kpi-value { color: var(--warn-4); }
+  .kpi.green .kpi-value { color: var(--success); }
+  .kpi.blue .kpi-value { color: #58a6ff; }
+
+  /* ── Filters ── */
+  .filters {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .filters label { font-size: 12px; color: var(--muted); font-weight: 600; display: flex; flex-direction: column; gap: 5px; }
+
+  .filters select, .filters input[type="date"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 7px 10px;
+    font-size: 13px;
+    appearance: none;
+    min-width: 140px;
+  }
+
+  .filters select:focus, .filters input:focus { outline: none; border-color: var(--accent); }
+
+  .filter-reset {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .filter-reset:hover { color: var(--text); }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .table-header h3 { font-size: 14px; font-weight: 700; }
+  .table-header span { font-size: 12px; color: var(--muted); }
+
+  .table-scroll { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+
+  th {
+    text-align: left;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 13px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(48,54,61,0.6);
+    vertical-align: top;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .u1 { background: rgba(63,185,80,0.15); color: var(--warn-1); }
+  .u2 { background: rgba(126,231,135,0.12); color: var(--warn-2); }
+  .u3 { background: rgba(210,153,34,0.15); color: var(--warn-3); }
+  .u4 { background: rgba(240,136,62,0.15); color: var(--warn-4); }
+  .u5 { background: rgba(248,81,73,0.15); color: var(--warn-5); }
+
+  .s-pendente  { background: rgba(210,153,34,0.15); color: var(--status-pendente); }
+  .s-andamento { background: rgba(88,166,255,0.15); color: var(--status-andamento); }
+  .s-concluido { background: rgba(63,185,80,0.15); color: var(--status-concluido); }
+  .s-cancelado { background: rgba(139,148,158,0.15); color: var(--status-cancelado); }
+
+  .tipo-tag {
+    background: rgba(255,255,255,0.06);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .prazo-warn { color: var(--warn-5); font-weight: 700; }
+  .prazo-ok { color: var(--muted); }
+
+  .desc-cell { max-width: 240px; }
+  .desc-text { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+  .action-btn {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+  }
+
+  .action-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  .actions-cell { display: flex; gap: 6px; flex-wrap: wrap; min-width: 160px; }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal h3 { font-size: 16px; margin-bottom: 20px; }
+
+  .detail-row { margin-bottom: 14px; }
+  .detail-label { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .detail-value { font-size: 14px; }
+
+  .note-area {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    margin-top: 4px;
+  }
+
+  .note-area:focus { outline: none; border-color: var(--accent); }
+
+  .status-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 8px 12px;
+    font-size: 14px;
+    width: 100%;
+    appearance: none;
+    margin-top: 4px;
+  }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  .loading {
+    text-align: center;
+    padding: 60px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  @media (max-width: 768px) {
+    main { padding: 16px; }
+    nav { padding: 12px 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .filters { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Auth -->
+<div id="authOverlay">
+  <div class="auth-card">
+    <div class="auth-logo">🔐</div>
+    <h2>Dashboard do Arquiteto</h2>
+    <p>Acesso restrito — Teletex Security</p>
+    <input type="password" class="auth-input" id="pinInput" placeholder="PIN" onkeydown="if(event.key==='Enter')checkPin()" />
+    <button class="auth-btn" onclick="checkPin()">Entrar</button>
+    <div class="auth-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+
+<nav>
+  <div class="nav-left">
+    <div class="logo">TX</div>
+    <div>
+      <h1>Dashboard do Arquiteto</h1>
+      <span id="lastUpdated">Carregando...</span>
+    </div>
+  </div>
+  <div class="nav-right">
+    <button class="btn" onclick="loadData()">↻ Atualizar</button>
+    <button class="btn primary" onclick="exportCSV()">⬇ Exportar CSV</button>
+  </div>
+</nav>
+
+<main>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Total de registros</div>
+      <div class="kpi-value" id="kpiTotal">—</div>
+      <div class="kpi-sub">Últimos 3 meses</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Urgência crítica (5)</div>
+      <div class="kpi-value" id="kpiCritica">—</div>
+      <div class="kpi-sub">Atenção imediata</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-label">Urgência alta (4)</div>
+      <div class="kpi-value" id="kpiAlta">—</div>
+      <div class="kpi-sub">Prioridade alta</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Prazo em 7 dias</div>
+      <div class="kpi-value" id="kpiPrazo" style="color:#f0883e">—</div>
+      <div class="kpi-sub">Vencendo em breve</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Concluídas</div>
+      <div class="kpi-value" id="kpiConcluido">—</div>
+      <div class="kpi-sub">Entregues</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-label">Em andamento</div>
+      <div class="kpi-value" id="kpiAndamento">—</div>
+      <div class="kpi-sub">Working on it</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters">
+    <label>
+      Vendedor
+      <select id="fVendedor" onchange="applyFilters()">
+        <option value="">Todos</option>
+        <option>Lucas Santos</option>
+        <option>Ricardo Spezia</option>
+        <option>Alessandra Motoda</option>
+        <option>Guilherme Parletta</option>
+        <option>Anderson Faustino</option>
+        <option>Dimitri Oliveira</option>
+        <option>Vladimir Diniz</option>
+        <option>Leonardo Amora</option>
+        <option>Jean Oliveira</option>
+        <option>Vitor Buss</option>
+      </select>
+    </label>
+
+    <label>
+      Urgência
+      <select id="fUrgencia" onchange="applyFilters()">
+        <option value="">Todas</option>
+        <option value="5">5 — Crítica</option>
+        <option value="4">4 — Alta</option>
+        <option value="3">3 — Média</option>
+        <option value="2">2 — Média-Baixa</option>
+        <option value="1">1 — Baixa</option>
+      </select>
+    </label>
+
+    <label>
+      Status
+      <select id="fStatus" onchange="applyFilters()">
+        <option value="">Todos</option>
+        <option value="pendente">Pendente</option>
+        <option value="em andamento">Em Andamento</option>
+        <option value="concluído">Concluído</option>
+        <option value="cancelado">Cancelado</option>
+      </select>
+    </label>
+
+    <label>
+      Tipo
+      <select id="fTipo" onchange="applyFilters()">
+        <option value="">Todos</option>
+        <option>Projeto</option>
+        <option>Reunião</option>
+        <option>Proposta</option>
+        <option>POC</option>
+      </select>
+    </label>
+
+    <label>
+      De
+      <input type="date" id="fDe" onchange="applyFilters()" />
+    </label>
+
+    <label>
+      Até
+      <input type="date" id="fAte" onchange="applyFilters()" />
+    </label>
+
+    <button class="filter-reset" onclick="resetFilters()">Limpar filtros</button>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <h3>Prioridades</h3>
+      <span id="tableCount">—</span>
+    </div>
+    <div class="table-scroll">
+      <div id="tableBody"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent">
+    <h3>Detalhe da Prioridade</h3>
+    <div id="modalBody"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModalDirect()">Fechar</button>
+      <button class="btn primary" id="modalSaveBtn" onclick="saveModal()">Salvar alterações</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────
+// Altere o PIN abaixo para o que desejar
+const DASHBOARD_PIN = 'teletex2026';
+// ────────────────────────────────────────
+
+let allData = [];
+let filteredData = [];
+let currentEditId = null;
+
+// Auth
+function checkPin() {
+  const val = document.getElementById('pinInput').value;
+  if (val === DASHBOARD_PIN) {
+    document.getElementById('authOverlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadData();
+  } else {
+    document.getElementById('authError').textContent = 'PIN incorreto. Tente novamente.';
+    document.getElementById('pinInput').value = '';
+  }
+}
+
+// Load data
+async function loadData() {
+  document.getElementById('tableBody').innerHTML = '<div class="loading">Carregando prioridades...</div>';
+  try {
+    const res = await fetch('/api/load');
+    const data = await res.json();
+    allData = data.sort((a, b) => {
+      if (b.urgencia !== a.urgencia) return b.urgencia - a.urgencia;
+      return new Date(a.prazo) - new Date(b.prazo);
+    });
+    updateKPIs();
+    applyFilters();
+    document.getElementById('lastUpdated').textContent =
+      'Atualizado: ' + new Date().toLocaleString('pt-BR');
+  } catch (e) {
+    document.getElementById('tableBody').innerHTML =
+      '<div class="loading" style="color:#f85149">Erro ao carregar dados. Verifique a configuração.</div>';
+  }
+}
+
+// KPIs
+function updateKPIs() {
+  const now = new Date();
+  const in7 = new Date(); in7.setDate(in7.getDate() + 7);
+  document.getElementById('kpiTotal').textContent = allData.length;
+  document.getElementById('kpiCritica').textContent = allData.filter(d => d.urgencia == 5).length;
+  document.getElementById('kpiAlta').textContent = allData.filter(d => d.urgencia == 4).length;
+  document.getElementById('kpiPrazo').textContent = allData.filter(d => {
+    const p = new Date(d.prazo);
+    return p >= now && p <= in7 && d.status !== 'concluído' && d.status !== 'cancelado';
+  }).length;
+  document.getElementById('kpiConcluido').textContent = allData.filter(d => d.status === 'concluído').length;
+  document.getElementById('kpiAndamento').textContent = allData.filter(d => d.status === 'em andamento').length;
+}
+
+// Filters
+function applyFilters() {
+  const vend   = document.getElementById('fVendedor').value;
+  const urg    = document.getElementById('fUrgencia').value;
+  const status = document.getElementById('fStatus').value;
+  const tipo   = document.getElementById('fTipo').value;
+  const de     = document.getElementById('fDe').value;
+  const ate    = document.getElementById('fAte').value;
+
+  filteredData = allData.filter(d => {
+    if (vend   && d.vendedor !== vend) return false;
+    if (urg    && d.urgencia != urg)   return false;
+    if (status && d.status !== status) return false;
+    if (tipo   && d.tipo !== tipo)     return false;
+    if (de     && d.prazo < de)        return false;
+    if (ate    && d.prazo > ate)       return false;
+    return true;
+  });
+
+  renderTable();
+}
+
+function resetFilters() {
+  ['fVendedor','fUrgencia','fStatus','fTipo','fDe','fAte'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  applyFilters();
+}
+
+// Render table
+function renderTable() {
+  document.getElementById('tableCount').textContent = `${filteredData.length} registro(s)`;
+
+  if (filteredData.length === 0) {
+    document.getElementById('tableBody').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>Nenhuma prioridade encontrada com os filtros atuais.</p>
+      </div>`;
+    return;
+  }
+
+  const now = new Date();
+  const in7 = new Date(); in7.setDate(in7.getDate() + 7);
+
+  const rows = filteredData.map(d => {
+    const prazoDate = new Date(d.prazo + 'T00:00:00');
+    const prazoStr  = prazoDate.toLocaleDateString('pt-BR');
+    const prazoWarn = prazoDate <= in7 && d.status !== 'concluído' && d.status !== 'cancelado';
+
+    const urgLabel = ['','Baixa','Méd-Baixa','Média','Alta','Crítica'][d.urgencia] || d.urgencia;
+    const statusClass = {
+      'pendente': 's-pendente',
+      'em andamento': 's-andamento',
+      'concluído': 's-concluido',
+      'cancelado': 's-cancelado'
+    }[d.status] || 's-pendente';
+
+    const createdAt = new Date(d.created_at).toLocaleDateString('pt-BR');
+
+    return `<tr>
+      <td><strong>${escHtml(d.vendedor)}</strong><br/><span style="color:var(--muted);font-size:11px">${createdAt}</span></td>
+      <td>${escHtml(d.cliente)}</td>
+      <td style="font-family:monospace;font-size:12px;color:var(--muted)">${escHtml(d.oportunidade_sf)}</td>
+      <td><span class="tipo-tag">${escHtml(d.tipo)}</span></td>
+      <td><span class="badge u${d.urgencia}">${d.urgencia} — ${urgLabel}</span></td>
+      <td class="desc-cell"><div class="desc-text">${escHtml(d.descricao)}</div></td>
+      <td class="${prazoWarn ? 'prazo-warn' : 'prazo-ok'}">${prazoStr}${prazoWarn ? ' ⚠' : ''}</td>
+      <td><span class="badge ${statusClass}">${d.status}</span></td>
+      <td>
+        <div class="actions-cell">
+          <button class="action-btn" onclick="openModal('${d.id}')">✏ Editar</button>
+          <button class="action-btn" onclick="quickStatus('${d.id}','em andamento')" title="Marcar em andamento">▶</button>
+          <button class="action-btn" onclick="quickStatus('${d.id}','concluído')" title="Concluir">✓</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tableBody').innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Vendedor / Data</th>
+          <th>Cliente</th>
+          <th>Oportunidade SF</th>
+          <th>Tipo</th>
+          <th>Urgência</th>
+          <th>Descrição</th>
+          <th>Prazo</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// Quick status change
+async function quickStatus(id, newStatus) {
+  const item = allData.find(d => d.id === id);
+  if (!item) return;
+  item.status = newStatus;
+  item.updated_at = new Date().toISOString();
+
+  await fetch('/api/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, status: newStatus })
+  });
+
+  updateKPIs();
+  applyFilters();
+}
+
+// Modal
+function openModal(id) {
+  const d = allData.find(x => x.id === id);
+  if (!d) return;
+  currentEditId = id;
+
+  const prazoFmt = d.prazo ? new Date(d.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const createdFmt = new Date(d.created_at).toLocaleString('pt-BR');
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="detail-row"><div class="detail-label">Vendedor</div><div class="detail-value">${escHtml(d.vendedor)}</div></div>
+    <div class="detail-row"><div class="detail-label">Cliente</div><div class="detail-value">${escHtml(d.cliente)}</div></div>
+    <div class="detail-row"><div class="detail-label">Oportunidade Salesforce</div><div class="detail-value" style="font-family:monospace">${escHtml(d.oportunidade_sf)}</div></div>
+    <div class="detail-row"><div class="detail-label">Tipo</div><div class="detail-value">${escHtml(d.tipo)}</div></div>
+    <div class="detail-row"><div class="detail-label">Urgência</div><div class="detail-value">${d.urgencia} / 5</div></div>
+    <div class="detail-row"><div class="detail-label">Prazo com cliente</div><div class="detail-value">${prazoFmt}</div></div>
+    <div class="detail-row"><div class="detail-label">Enviado em</div><div class="detail-value">${createdFmt}</div></div>
+    <div class="detail-row"><div class="detail-label">Descrição</div><div class="detail-value" style="color:var(--muted)">${escHtml(d.descricao)}</div></div>
+    <div class="detail-row">
+      <div class="detail-label">Status</div>
+      <select class="status-select" id="modalStatus">
+        <option value="pendente" ${d.status==='pendente'?'selected':''}>Pendente</option>
+        <option value="em andamento" ${d.status==='em andamento'?'selected':''}>Em Andamento</option>
+        <option value="concluído" ${d.status==='concluído'?'selected':''}>Concluído</option>
+        <option value="cancelado" ${d.status==='cancelado'?'selected':''}>Cancelado</option>
+      </select>
+    </div>
+    <div class="detail-row">
+      <div class="detail-label">Nota do arquiteto</div>
+      <textarea class="note-area" id="modalNota" placeholder="Observações, bloqueios, próximos passos...">${d.nota_arquiteto || ''}</textarea>
+    </div>`;
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+async function saveModal() {
+  if (!currentEditId) return;
+  const status = document.getElementById('modalStatus').value;
+  const nota   = document.getElementById('modalNota').value;
+
+  document.getElementById('modalSaveBtn').textContent = 'Salvando...';
+  document.getElementById('modalSaveBtn').disabled = true;
+
+  const res = await fetch('/api/update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: currentEditId, status, nota })
+  });
+
+  const item = allData.find(d => d.id === currentEditId);
+  if (item) {
+    item.status = status;
+    item.nota_arquiteto = nota;
+    item.updated_at = new Date().toISOString();
+  }
+
+  closeModalDirect();
+  updateKPIs();
+  applyFilters();
+
+  document.getElementById('modalSaveBtn').textContent = 'Salvar alterações';
+  document.getElementById('modalSaveBtn').disabled = false;
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+}
+
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  currentEditId = null;
+}
+
+// Export CSV
+function exportCSV() {
+  const headers = ['Vendedor','Cliente','Oportunidade SF','Tipo','Urgência','Descrição','Prazo','Status','Nota Arquiteto','Enviado em','Atualizado em'];
+
+  const rows = filteredData.map(d => [
+    d.vendedor,
+    d.cliente,
+    d.oportunidade_sf,
+    d.tipo,
+    d.urgencia,
+    d.descricao,
+    d.prazo,
+    d.status,
+    d.nota_arquiteto || '',
+    new Date(d.created_at).toLocaleString('pt-BR'),
+    d.updated_at ? new Date(d.updated_at).toLocaleString('pt-BR') : ''
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const bom = '\uFEFF'; // UTF-8 BOM for Excel
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+
+  const today = new Date().toISOString().slice(0,10);
+  a.download = `teletex_prioridades_${today}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Helpers
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
